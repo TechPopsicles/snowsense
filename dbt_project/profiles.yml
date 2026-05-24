@@ -1,0 +1,15 @@
+snowsense:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SF_ACCOUNT') }}"
+      user: "{{ env_var('SF_USER') }}"
+      private_key_path: "{{ env_var('PRIVATE_KEY_PATH') }}"
+      role: "{{ env_var('SF_ROLE', 'ANALYST_ROLE') }}"
+      database: "{{ env_var('SF_DATABASE', 'ANALYTICS') }}"
+      warehouse: "{{ env_var('SF_WAREHOUSE', 'COMPUTE_X_WH') }}"
+      schema: "{{ env_var('SF_SCHEMA', 'PUBLIC') }}"
+      threads: 4
+      client_session_keep_alive: false
+      query_tag: snowsense_dbt

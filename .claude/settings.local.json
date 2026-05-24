@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(docker compose *)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/python3 -c ' *)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(curl -s http://localhost:8501)"
+    ]
+  }
+}

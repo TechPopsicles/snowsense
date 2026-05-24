@@ -1,0 +1,205 @@
+version: 2
+
+models:
+  - name: mart_revenue
+    description: >
+      Business-facing daily revenue summary. One row per (order_date, order_status) combination.
+      Aggregates all line items for that day and status into gross revenue, net revenue, discount
+      impact, and order volume. Always use net_revenue for financial reporting — it is the only
+      figure that correctly accounts for customer discounts and tax. Covers the full TPCH SF1 date
+      range: 1992 to 1998. Materialized as a table for fast BI and dashboard access. Use this model
+      to answer questions about daily revenue trends, monthly or annual revenue totals, discount
+      impact over time, and order volume fluctuations.
+    columns:
+      - name: order_date
+        description: "Calendar date of the orders being summarised. Granularity is daily."
+        tests:
+          - not_null
+      - name: revenue_month
+        description: "First day of the calendar month for this order_date. Use for monthly roll-up aggregations and month-over-month comparisons."
+      - name: revenue_year
+        description: "First day of the calendar year for this order_date. Use for annual roll-up aggregations and year-over-year comparisons."
+      - name: order_status_label
+        description: >
+          Human-readable order status label. O=open (being processed), F=fulfilled (shipped and
+          complete), P=partially fulfilled (some line items shipped). Filter to order_status_label = 'F'
+          for completed, recognisable revenue figures. Filtering to 'O' or 'P' gives in-flight
+          (pipeline) revenue. Never report total revenue across all statuses without filtering —
+          open orders have not yet been earned.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['O', 'F', 'P']
+      - name: order_count
+        description: "Number of distinct orders placed on this date with this status."
+      - name: line_item_count
+        description: "Total number of individual line items across all orders for this date and status."
+      - name: total_quantity
+        description: "Sum of units ordered across all line items for this date and status."
+      - name: gross_revenue
+        description: "Sum of extended_price for all line items. Overstates actual revenue because discounts are not applied. Provided for comparison and discount-impact analysis only — do not use as the revenue figure."
+      - name: net_revenue
+        description: >
+          Net revenue per line item after applying customer discount and adding tax.
+          Formula: L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX). Use this column,
+          never gross_revenue or order_total_price, for any revenue reporting. This is
+          the single source of truth for all financial metrics in SnowSense. Summed across
+          all line items for this date and status.
+        tests:
+          - not_null
+      - name: total_discount_amount
+        description: "Total monetary value of discounts given: SUM(extended_price * discount). Shows the revenue foregone through promotional and negotiated discounts on this day."
+      - name: avg_discount_rate
+        description: "Average fractional discount rate across all line items for this day. Range 0.00–0.10. Track over time to identify trends in discounting behaviour."
+
+  - name: mart_customer_value
+    description: >
+      Customer lifetime value (LTV) mart. One row per customer. Aggregates all historical orders
+      and line items to compute total spending (LTV), order frequency, average order value, and
+      customer tenure. Enriched with market segment, nation, and region from the customer dimension.
+      Use this model to answer questions about top customers by revenue, customer segmentation
+      by market type, LTV distribution across segments, and geographic revenue concentration.
+      Materialized as a table. The definitive model for any customer-value question in SnowSense.
+    columns:
+      - name: customer_id
+        description: "Unique customer identifier. Primary key of this mart. One row per customer."
+        tests:
+          - unique
+          - not_null
+      - name: customer_name
+        description: "Customer display name (e.g. 'Customer#000000001')."
+      - name: market_segment
+        description: >
+          Customer market segment from TPCH. Values: AUTOMOBILE, BUILDING, FURNITURE, HOUSEHOLD,
+          MACHINERY. Use for customer cohort analysis and segment-level revenue breakdowns.
+          This is the primary dimension for customer segmentation in SnowSense — filter or group
+          by market_segment when answering questions about specific industry verticals.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['AUTOMOBILE', 'BUILDING', 'FURNITURE', 'HOUSEHOLD', 'MACHINERY']
+      - name: nation_name
+        description: "Country where the customer is based (e.g. 'GERMANY', 'UNITED STATES')."
+      - name: region_name
+        description: "Continental region of the customer. Values: AFRICA, AMERICA, ASIA, EUROPE, MIDDLE EAST."
+      - name: account_balance
+        description: "Customer account balance at snapshot time. Negative values indicate overdue accounts."
+      - name: first_order_date
+        description: "Date of the customer's earliest order. Combined with last_order_date gives customer tenure."
+      - name: last_order_date
+        description: "Date of the customer's most recent order. Customers with no recent orders may be churned."
+      - name: total_orders
+        description: "Total number of distinct orders placed by this customer across all time. Measure of purchase frequency."
+      - name: customer_ltv
+        description: >
+          Lifetime value of a customer — total net revenue generated across all their orders
+          since account creation. Calculated as SUM(net_revenue) across all line items.
+          Never sum raw ORDERS.O_TOTALPRICE for this metric — it excludes discounts and will
+          overstate LTV. Source of truth: mart_customer_value. The definitive customer value
+          metric in SnowSense. Use to rank customers, define tiers, and answer questions
+          like "who are our top 10 customers?"
+        tests:
+          - not_null
+      - name: avg_revenue_per_line
+        description: "Average net revenue per individual line item for this customer. Measures typical spending density per purchase line."
+      - name: avg_order_value
+        description: "Average net revenue per order: customer_ltv / total_orders. Standard e-commerce AOV metric. Use to compare spending levels across segments."
+      - name: customer_tenure_days
+        description: "Days between first_order_date and last_order_date. Proxy for customer longevity. A customer with high tenure but low LTV places infrequent small orders."
+      - name: value_tier
+        description: "Business-assigned tier based on customer_ltv. Platinum: LTV ≥ $500k, Gold: ≥ $250k, Silver: ≥ $100k, Bronze: below $100k. Use for priority routing, reporting segmentation, and executive dashboards."
+
+  - name: mart_supplier_performance
+    description: >
+      Supplier performance summary mart. One row per supplier. Aggregates all line items fulfilled
+      by each supplier to measure volume, revenue contribution, delivery speed, and return rate.
+      Enriched with supplier nation and region. Use this model to answer questions about top
+      suppliers by revenue, supplier reliability and return rates, average delivery performance,
+      and geographic supplier concentration. Materialized as a table.
+    columns:
+      - name: supplier_id
+        description: "Unique supplier identifier. Primary key of this mart."
+        tests:
+          - unique
+          - not_null
+      - name: supplier_name
+        description: "Supplier display name."
+      - name: nation_name
+        description: "Country where the supplier operates."
+      - name: region_name
+        description: "Continental region of the supplier. Values: AFRICA, AMERICA, ASIA, EUROPE, MIDDLE EAST."
+      - name: account_balance
+        description: "Supplier account balance. Positive values indicate amounts owed to the supplier."
+      - name: orders_supplied
+        description: "Number of distinct orders this supplier fulfilled at least one line item for."
+      - name: line_items_supplied
+        description: "Total number of individual line items fulfilled by this supplier across all orders."
+      - name: total_quantity_supplied
+        description: "Total units shipped by this supplier across all line items."
+      - name: total_net_revenue
+        description: >
+          Total net revenue attributable to this supplier's fulfilled line items.
+          Computed using the approved net_revenue formula: extended_price * (1 - discount) * (1 + tax).
+          Use to rank suppliers by revenue contribution and understand supply chain value concentration.
+        tests:
+          - not_null
+      - name: avg_discount_given
+        description: "Average fractional discount applied on this supplier's line items. Higher values indicate more aggressive discounting. Compare across suppliers to identify pricing patterns."
+      - name: avg_delivery_days
+        description: "Average days between ship_date and receipt_date for this supplier's items. Lower is better — key supplier reliability and lead-time metric."
+      - name: returned_items
+        description: "Number of line items returned by customers (return_flag = 'R') from this supplier."
+      - name: fulfilled_items
+        description: "Number of line items accepted by customers (not returned) from this supplier."
+      - name: return_rate_pct
+        description: "Percentage of line items returned: (returned_items / line_items_supplied) * 100. Key quality metric — a high return rate indicates fulfilment or product quality issues with this supplier."
+
+  - name: mart_part_demand
+    description: >
+      Part demand analysis mart. One row per (part, order_date, demand_month) combination.
+      Aggregates order volume and net revenue by part and time period. Enriched with part
+      attributes: type, brand, manufacturer, size, retail price. Use this model to answer
+      questions about best-selling parts by quantity or revenue, demand trends over time,
+      revenue by part type or brand, popular manufacturers, and promotional discount patterns
+      by product. Materialized as a table.
+    columns:
+      - name: part_id
+        description: "Unique part identifier."
+        tests:
+          - not_null
+      - name: part_name
+        description: "Descriptive part name (e.g. 'cornflower chocolate smoke green pink')."
+      - name: part_type
+        description: "Part category and material (e.g. 'ECONOMY ANODIZED STEEL', 'PROMO POLISHED BRASS'). Use to filter or group by product category. Contains economy/standard/promo prefix and material suffix."
+      - name: brand
+        description: "Brand label (e.g. 'Brand#11'). 25 distinct brands. Use for brand-level demand and revenue analysis."
+      - name: manufacturer
+        description: "Manufacturer identifier (e.g. 'Manufacturer#1'). 5 distinct manufacturers. Use for manufacturer-level roll-ups."
+      - name: part_size
+        description: "Integer size indicator (range: 1–50)."
+      - name: retail_price
+        description: "Standard retail price for this part. Compare to avg_line_price to understand volume pricing effects."
+      - name: order_date
+        description: "Calendar date of the orders included in this row."
+        tests:
+          - not_null
+      - name: demand_month
+        description: "Month of demand truncated to the first of the month. Use for monthly trend analysis and seasonal demand patterns."
+      - name: order_count
+        description: "Number of distinct orders that included this part on this date."
+      - name: line_item_count
+        description: "Number of individual line items for this part on this date."
+      - name: total_quantity_demanded
+        description: "Total units of this part ordered on this date. Primary demand volume metric — use to identify best-selling parts."
+      - name: total_net_revenue
+        description: >
+          Total net revenue from sales of this part on this date.
+          Computed as SUM(extended_price * (1 - discount) * (1 + tax)).
+          Use for revenue-weighted demand analysis and to identify highest-value parts
+          independent of unit volume.
+        tests:
+          - not_null
+      - name: avg_discount_rate
+        description: "Average discount rate applied on this part's line items for this date. Track over time to identify promotional patterns and price erosion by product."
+      - name: avg_line_price
+        description: "Average extended_price per line item for this part on this date. Compare to retail_price to understand the effect of order quantity on effective price."

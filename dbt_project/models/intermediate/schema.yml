@@ -1,0 +1,136 @@
+version: 2
+
+models:
+  - name: int_orders_lineitems
+    description: >
+      Intermediate model joining stg_orders and stg_lineitem on order_id. One row per line item,
+      enriched with order-level attributes (date, status, priority). The key computed column is
+      net_revenue — extended_price * (1 - discount) * (1 + tax) — the single approved formula for
+      all revenue reporting. Approximately 6 million rows at SF1. Materialized as a view.
+      Primary input for mart_revenue and mart_customer_value.
+    columns:
+      - name: order_id
+        description: "Order identifier. Foreign key from stg_orders."
+        tests:
+          - not_null
+      - name: customer_id
+        description: "Customer who placed the order. Foreign key to stg_customer."
+        tests:
+          - not_null
+      - name: order_status
+        description: "Status of the parent order. O=open, F=fulfilled, P=partially fulfilled."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['O', 'F', 'P']
+      - name: order_date
+        description: "Date the order was placed. Primary column for all time-series aggregations."
+        tests:
+          - not_null
+      - name: order_priority
+        description: "Business priority of the order (1-URGENT through 5-LOW)."
+      - name: clerk
+        description: "Sales clerk who recorded the order."
+      - name: ship_priority
+        description: "Shipping priority flag from the order header."
+      - name: line_number
+        description: "Sequential position of this line item within the order."
+        tests:
+          - not_null
+      - name: part_id
+        description: "Part ordered on this line item."
+        tests:
+          - not_null
+      - name: supplier_id
+        description: "Supplier who fulfilled this line item."
+        tests:
+          - not_null
+      - name: quantity
+        description: "Units ordered for this part."
+      - name: extended_price
+        description: "Gross line price before discount and tax. Do not use for revenue — use net_revenue."
+      - name: discount
+        description: "Fractional discount rate (0.00–0.10)."
+      - name: tax
+        description: "Fractional tax rate (0.00–0.08)."
+      - name: net_revenue
+        description: >
+          Net revenue per line item after applying customer discount and adding tax.
+          Formula: extended_price * (1 - discount) * (1 + tax). This is the only approved
+          column for revenue reporting. Never use extended_price or order_total_price as
+          substitutes — they both overstate revenue by ignoring discounts. Aggregate with
+          SUM() for any revenue figure.
+        tests:
+          - not_null
+      - name: return_flag
+        description: "Return status: A=accepted, R=returned, N=not yet processed. Exclude R for non-returned revenue."
+      - name: line_status
+        description: "Fulfilment status: O=open, F=fulfilled."
+      - name: ship_date
+        description: "Actual dispatch date."
+      - name: commit_date
+        description: "Supplier-committed dispatch date."
+      - name: receipt_date
+        description: "Customer receipt date. Subtract ship_date for delivery lead time."
+      - name: ship_mode
+        description: "Carrier mode (AIR, RAIL, SHIP, TRUCK, etc.)."
+
+  - name: int_customer_orders
+    description: >
+      Intermediate model enriching customer orders with customer attributes and full geography.
+      Joins stg_customer → stg_nation → stg_region to int_orders_lineitems. One row per order
+      line item, with the customer's market segment, nation name, and region name attached.
+      Use as input for any customer-level aggregation: LTV by segment, revenue by geography,
+      or cohort analysis. Approximately 6 million rows at SF1.
+    columns:
+      - name: customer_id
+        description: "Unique customer identifier. Foreign key to stg_customer."
+        tests:
+          - not_null
+      - name: customer_name
+        description: "Customer display name."
+      - name: market_segment
+        description: >
+          Customer market segment. Values: AUTOMOBILE, BUILDING, FURNITURE, HOUSEHOLD, MACHINERY.
+          Primary segmentation dimension for customer analytics and cohort analysis in SnowSense.
+        tests:
+          - not_null
+      - name: account_balance
+        description: "Customer account balance at snapshot time."
+      - name: nation_name
+        description: "Country name where the customer is based (e.g. 'GERMANY', 'FRANCE')."
+      - name: region_name
+        description: "Continental region of the customer. Values: AFRICA, AMERICA, ASIA, EUROPE, MIDDLE EAST."
+      - name: order_id
+        description: "Order identifier."
+      - name: order_status
+        description: "Order status: O=open, F=fulfilled, P=partially fulfilled."
+      - name: order_date
+        description: "Date the order was placed."
+      - name: order_priority
+        description: "Business priority level of the order."
+      - name: line_number
+        description: "Line item position within the order."
+      - name: part_id
+        description: "Part ordered on this line item."
+      - name: supplier_id
+        description: "Supplier who fulfilled this line item."
+      - name: quantity
+        description: "Units ordered."
+      - name: extended_price
+        description: "Gross line price. Use net_revenue for revenue reporting."
+      - name: discount
+        description: "Fractional discount rate applied to this line item."
+      - name: tax
+        description: "Fractional tax rate applied to this line item."
+      - name: net_revenue
+        description: >
+          Net revenue per line item: extended_price * (1 - discount) * (1 + tax).
+          The approved revenue metric — accounts for both discount and tax. Aggregate with
+          SUM() for any revenue figure involving customers or segments.
+        tests:
+          - not_null
+      - name: ship_date
+        description: "Date item was dispatched."
+      - name: ship_mode
+        description: "Carrier mode (AIR, RAIL, SHIP, TRUCK, etc.)."

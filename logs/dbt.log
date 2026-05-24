@@ -1,0 +1,48 @@
+[0m16:01:19.760201 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10d55ed20>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10de07fe0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10de07da0>]}
+
+
+============================== 16:01:19.764485 | b0fea37b-4925-4f3c-8b2f-c03a1de818d8 ==============================
+[0m16:01:19.764485 [info ] [MainThread]: Running with dbt=1.11.8
+[0m16:01:19.764961 [debug] [MainThread]: running dbt with arguments {'invocation_command': 'dbt debug', 'warn_error': 'None', 'debug': 'False', 'empty': 'None', 'version_check': 'True', 'quiet': 'False', 'log_path': 'logs', 'use_experimental_parser': 'False', 'static_parser': 'True', 'indirect_selection': 'eager', 'cache_selected_only': 'False', 'introspect': 'True', 'target_path': 'None', 'printer_width': '80', 'fail_fast': 'False', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'profiles_dir': '/Users/techminionacademy/.dbt', 'no_print': 'None', 'use_colors': 'True', 'partial_parse': 'True', 'write_json': 'True', 'send_anonymous_usage_stats': 'True', 'log_cache_events': 'False', 'log_format': 'default'}
+[0m16:01:19.777495 [info ] [MainThread]: dbt version: 1.11.8
+[0m16:01:19.777808 [info ] [MainThread]: python version: 3.12.13
+[0m16:01:19.778001 [info ] [MainThread]: python path: /Users/techminionacademy/Documents/projects/snowsense/.venv/bin/python3.12
+[0m16:01:19.778184 [info ] [MainThread]: os info: macOS-26.4.1-arm64-arm-64bit
+[0m16:01:21.206415 [debug] [MainThread]: Snowflake adapter: Setting snowflake.connector to ERROR (file logging only)
+[0m16:01:21.206791 [debug] [MainThread]: Snowflake adapter: Setting botocore to ERROR (file logging only)
+[0m16:01:21.207016 [debug] [MainThread]: Snowflake adapter: Setting boto3 to ERROR (file logging only)
+[0m16:01:21.254216 [info ] [MainThread]: Using profiles dir at /Users/techminionacademy/.dbt
+[0m16:01:21.254549 [info ] [MainThread]: Using profiles.yml file at /Users/techminionacademy/.dbt/profiles.yml
+[0m16:01:21.254756 [info ] [MainThread]: Using dbt_project.yml file at /Users/techminionacademy/Documents/projects/snowsense/dbt_project.yml
+[0m16:01:21.254992 [error] [MainThread]: Encountered an error:
+Internal Error
+  Profile should not be None if loading profile completed
+[0m16:01:21.258208 [debug] [MainThread]: Resource report: {"command_name": "debug", "command_success": false, "command_wall_clock_time": 1.5566905, "process_in_blocks": "0", "process_kernel_time": 0.26246, "process_mem_max_rss": "138313728", "process_out_blocks": "0", "process_user_time": 1.261828}
+[0m16:01:21.258721 [debug] [MainThread]: Command `dbt debug` failed at 16:01:21.258647 after 1.56 seconds
+[0m16:01:21.258983 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10e9e55b0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10dde1160>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10dede3f0>]}
+[0m16:01:21.259250 [debug] [MainThread]: Flushing usage events
+[0m16:01:21.425486 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m16:03:25.842172 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10ad7b6e0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10bb0bfe0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10bb0be30>]}
+
+
+============================== 16:03:25.846718 | 81da5581-d915-4e84-86b0-d582ef407cba ==============================
+[0m16:03:25.846718 [info ] [MainThread]: Running with dbt=1.11.8
+[0m16:03:25.847209 [debug] [MainThread]: running dbt with arguments {'profiles_dir': '/Users/techminionacademy/.dbt', 'printer_width': '80', 'send_anonymous_usage_stats': 'True', 'cache_selected_only': 'False', 'fail_fast': 'False', 'use_colors': 'True', 'quiet': 'False', 'invocation_command': 'dbt debug', 'no_print': 'None', 'log_path': 'logs', 'partial_parse': 'True', 'log_cache_events': 'False', 'target_path': 'None', 'indirect_selection': 'eager', 'log_format': 'default', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'static_parser': 'True', 'introspect': 'True', 'version_check': 'True', 'debug': 'False', 'use_experimental_parser': 'False', 'warn_error': 'None', 'empty': 'None', 'write_json': 'True'}
+[0m16:03:25.861571 [info ] [MainThread]: dbt version: 1.11.8
+[0m16:03:25.861964 [info ] [MainThread]: python version: 3.12.13
+[0m16:03:25.862158 [info ] [MainThread]: python path: /Users/techminionacademy/Documents/projects/snowsense/.venv/bin/python3.12
+[0m16:03:25.862331 [info ] [MainThread]: os info: macOS-26.4.1-arm64-arm-64bit
+[0m16:03:26.488067 [debug] [MainThread]: Snowflake adapter: Setting snowflake.connector to ERROR (file logging only)
+[0m16:03:26.488414 [debug] [MainThread]: Snowflake adapter: Setting botocore to ERROR (file logging only)
+[0m16:03:26.488627 [debug] [MainThread]: Snowflake adapter: Setting boto3 to ERROR (file logging only)
+[0m16:03:26.534183 [info ] [MainThread]: Using profiles dir at /Users/techminionacademy/.dbt
+[0m16:03:26.534485 [info ] [MainThread]: Using profiles.yml file at /Users/techminionacademy/.dbt/profiles.yml
+[0m16:03:26.534691 [info ] [MainThread]: Using dbt_project.yml file at /Users/techminionacademy/Documents/projects/snowsense/dbt_project.yml
+[0m16:03:26.534919 [error] [MainThread]: Encountered an error:
+Internal Error
+  Profile should not be None if loading profile completed
+[0m16:03:26.538046 [debug] [MainThread]: Resource report: {"command_name": "debug", "command_success": false, "command_wall_clock_time": 0.75795084, "process_in_blocks": "0", "process_kernel_time": 0.254528, "process_mem_max_rss": "138199040", "process_out_blocks": "0", "process_user_time": 1.280229}
+[0m16:03:26.538526 [debug] [MainThread]: Command `dbt debug` failed at 16:03:26.538450 after 0.76 seconds
+[0m16:03:26.538776 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10c135d00>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10c3dd1c0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10bc04740>]}
+[0m16:03:26.539036 [debug] [MainThread]: Flushing usage events
+[0m16:03:26.729804 [debug] [MainThread]: An error was encountered while trying to flush usage events

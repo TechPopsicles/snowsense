@@ -1,0 +1,14 @@
+.env
+*.p8
+*.pem
+__pycache__/
+*.pyc
+.venv/
+venv/
+chroma-data/
+dbt_project/target/
+dbt_project/logs/
+dbt_project/.user.yml
+dbt_packages/
+.DS_Store
+pgdata/

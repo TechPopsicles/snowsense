@@ -1,0 +1,440 @@
+version: 2
+
+sources:
+  - name: tpch
+    database: SNOWFLAKE_SAMPLE_DATA
+    schema: TPCH_SF1
+    description: >
+      Snowflake TPCH benchmark sample dataset at scale factor 1 (~1 GB, ~8 million rows across
+      8 tables). Pre-loaded in every Snowflake account under SNOWFLAKE_SAMPLE_DATA. Represents a
+      simplified order-fulfilment business: customers place orders composed of line items, each
+      supplied by a vendor (supplier) and referencing a part. Geography is a two-level hierarchy:
+      5 regions → 25 nations. TPCH_SF1 is the development target; TPCH_SF10 (10 GB) and
+      TPCH_SF100 (100 GB) are available in SNOWFLAKE_SAMPLE_DATA for warehouse-sizing
+      demonstrations — the same query that runs fine on XS at SF1 may require L or XL at SF100.
+    tables:
+      - name: orders
+        description: "Master order header records. Each row is one customer order. 1.5 million rows at SF1."
+        columns:
+          - name: o_orderkey
+            description: "Unique integer identifier for each order. Primary key of ORDERS."
+          - name: o_custkey
+            description: "Foreign key referencing CUSTOMER.C_CUSTKEY — the customer who placed the order."
+          - name: o_orderstatus
+            description: "Single-character order status. O=open (in progress), F=fulfilled (shipped and complete), P=partially fulfilled (some line items shipped)."
+          - name: o_totalprice
+            description: "Gross total price as stored in the source system. Does NOT account for line-item discounts or taxes. Never use O_TOTALPRICE for revenue reporting — use net_revenue computed from LINEITEM instead."
+          - name: o_orderdate
+            description: "Calendar date the order was placed. Range in SF1: 1992-01-01 to 1998-12-31."
+          - name: o_orderpriority
+            description: "Business priority: 1-URGENT, 2-HIGH, 3-MEDIUM, 4-NOT SPECIFIED, 5-LOW."
+          - name: o_clerk
+            description: "Identifier of the sales clerk who recorded the order."
+          - name: o_shippriority
+            description: "Shipping priority flag. Integer, always 0 in SF1."
+          - name: o_comment
+            description: "Free-text comment on the order."
+
+      - name: lineitem
+        description: >
+          Individual line items within each order. Each order has 1–7 line items. 6 million rows
+          at SF1. The most granular fact table — all revenue calculations must originate here.
+          The approved revenue formula is: L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX).
+        columns:
+          - name: l_orderkey
+            description: "Foreign key referencing ORDERS.O_ORDERKEY."
+          - name: l_partkey
+            description: "Foreign key referencing PART.P_PARTKEY — which part was ordered."
+          - name: l_suppkey
+            description: "Foreign key referencing SUPPLIER.S_SUPPKEY — which supplier fulfilled this line item."
+          - name: l_linenumber
+            description: "Sequential line number within the order (1-based). Combined with L_ORDERKEY forms the composite primary key."
+          - name: l_quantity
+            description: "Number of units ordered on this line item."
+          - name: l_extendedprice
+            description: "Gross line price before discount and tax: quantity × part retail price. Do NOT use for revenue — it overstates by ignoring discounts. Use the net_revenue formula."
+          - name: l_discount
+            description: "Fractional discount rate (e.g. 0.05 = 5% off). Range: 0.00 to 0.10. Subtract from 1 before multiplying: extended_price * (1 - discount)."
+          - name: l_tax
+            description: "Fractional tax rate (e.g. 0.08 = 8% tax). Range: 0.00 to 0.08. Add to 1 before multiplying: post_discount_price * (1 + tax)."
+          - name: l_returnflag
+            description: "Return status. A=accepted (kept), R=returned (sent back), N=not yet processed. Exclude R to remove returned items from revenue."
+          - name: l_linestatus
+            description: "Fulfilment status. O=open (not yet shipped), F=fulfilled (shipped)."
+          - name: l_shipdate
+            description: "Actual date the item was dispatched from the warehouse."
+          - name: l_commitdate
+            description: "Date the supplier committed to ship the item."
+          - name: l_receiptdate
+            description: "Date the customer received the item. Use receipt_date - ship_date to compute delivery lead time."
+          - name: l_shipinstruct
+            description: "Delivery instruction: DELIVER IN PERSON, COLLECT COD, NONE, TAKE BACK RETURN."
+          - name: l_shipmode
+            description: "Carrier mode: AIR, FOB, MAIL, RAIL, REG AIR, SHIP, TRUCK."
+          - name: l_comment
+            description: "Free-text comment on the line item."
+
+      - name: customer
+        description: "Customer master. 150,000 rows at SF1. Each row is a unique customer with market segment and geographic association."
+        columns:
+          - name: c_custkey
+            description: "Unique integer identifier for each customer. Primary key."
+          - name: c_name
+            description: "Customer display name (e.g. 'Customer#000000001')."
+          - name: c_address
+            description: "Customer mailing address string."
+          - name: c_nationkey
+            description: "Foreign key referencing NATION.N_NATIONKEY — the country the customer is based in."
+          - name: c_phone
+            description: "Customer phone number in international format."
+          - name: c_acctbal
+            description: "Customer account balance at snapshot time. Can be negative for overdue accounts."
+          - name: c_mktsegment
+            description: "Customer market segment. Values: AUTOMOBILE, BUILDING, FURNITURE, HOUSEHOLD, MACHINERY. Use for customer cohort analysis."
+          - name: c_comment
+            description: "Free-text comment on the customer."
+
+      - name: supplier
+        description: "Supplier master. 10,000 rows at SF1. Each row is a vendor that supplies one or more parts."
+        columns:
+          - name: s_suppkey
+            description: "Unique integer identifier for each supplier. Primary key."
+          - name: s_name
+            description: "Supplier display name (e.g. 'Supplier#000000001')."
+          - name: s_address
+            description: "Supplier mailing address."
+          - name: s_nationkey
+            description: "Foreign key referencing NATION.N_NATIONKEY — the country the supplier operates from."
+          - name: s_phone
+            description: "Supplier contact phone number."
+          - name: s_acctbal
+            description: "Supplier account balance. Positive values indicate amounts the business owes to the supplier."
+          - name: s_comment
+            description: "Free-text comment on the supplier."
+
+      - name: part
+        description: "Part catalogue. 200,000 rows at SF1. Each row is a unique part type sold in orders."
+        columns:
+          - name: p_partkey
+            description: "Unique integer identifier for each part. Primary key."
+          - name: p_name
+            description: "Descriptive part name composed of colour and material words (e.g. 'cornflower chocolate smoke green pink')."
+          - name: p_mfgr
+            description: "Manufacturer identifier (e.g. 'Manufacturer#1'). 5 distinct manufacturers."
+          - name: p_brand
+            description: "Brand label (e.g. 'Brand#11'). 25 distinct brands."
+          - name: p_type
+            description: "Part category and material (e.g. 'ECONOMY ANODIZED STEEL', 'PROMO POLISHED BRASS')."
+          - name: p_size
+            description: "Integer size indicator. Range: 1 to 50."
+          - name: p_container
+            description: "Packaging container type (e.g. 'SM BOX', 'LG DRUM', 'MED CAN')."
+          - name: p_retailprice
+            description: "Standard retail price. Used as the basis for extended_price in LINEITEM."
+          - name: p_comment
+            description: "Free-text comment on the part."
+
+      - name: partsupp
+        description: "Part-supplier cross-reference. 800,000 rows at SF1. One row per (part, supplier) pair, including procurement cost and available stock."
+        columns:
+          - name: ps_partkey
+            description: "Foreign key referencing PART.P_PARTKEY. Part of the composite primary key (ps_partkey, ps_suppkey)."
+          - name: ps_suppkey
+            description: "Foreign key referencing SUPPLIER.S_SUPPKEY. Part of the composite primary key."
+          - name: ps_availqty
+            description: "Quantity of this part currently in stock from this supplier."
+          - name: ps_supplycost
+            description: "Unit cost to procure this part from this supplier. Varies by supplier — the same part may be cheaper from one supplier than another. Use for margin analysis: net_revenue - (quantity × supply_cost) = gross profit."
+          - name: ps_comment
+            description: "Free-text comment on the part-supplier record."
+
+      - name: nation
+        description: "Nation (country) dimension. 25 rows. Links customers and suppliers to geographic regions."
+        columns:
+          - name: n_nationkey
+            description: "Unique integer identifier for each nation. Primary key."
+          - name: n_name
+            description: "Country name in uppercase (e.g. 'GERMANY', 'FRANCE', 'UNITED STATES'). 25 countries spanning 5 regions."
+          - name: n_regionkey
+            description: "Foreign key referencing REGION.R_REGIONKEY."
+          - name: n_comment
+            description: "Free-text comment on the nation."
+
+      - name: region
+        description: "Region (continental) dimension. 5 rows: AFRICA, AMERICA, ASIA, EUROPE, MIDDLE EAST. Top level of the geographic hierarchy."
+        columns:
+          - name: r_regionkey
+            description: "Unique integer identifier for each region. Primary key."
+          - name: r_name
+            description: "Region name in uppercase. Values: AFRICA, AMERICA, ASIA, EUROPE, MIDDLE EAST."
+          - name: r_comment
+            description: "Free-text comment on the region."
+
+models:
+  - name: stg_orders
+    description: >
+      Staging model for TPCH ORDERS. Renames source columns to snake_case business names.
+      One row per order. 1.5 million rows at SF1. Materialized as a view — always reads live
+      from SNOWFLAKE_SAMPLE_DATA.TPCH_SF1. Use as the starting point for any order-level
+      analysis. For revenue analysis, join to stg_lineitem and use net_revenue, not
+      order_total_price — order_total_price ignores line-item discounts.
+    columns:
+      - name: order_id
+        description: "Unique integer identifier for each order. Maps to O_ORDERKEY. Primary key."
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "Foreign key to stg_customer.customer_id. Identifies the customer who placed this order."
+        tests:
+          - not_null
+      - name: order_status
+        description: >
+          Single-character order status. O=open (being processed), F=fulfilled (shipped and
+          complete), P=partially fulfilled. Filter to order_status = 'F' to see completed
+          revenue. Filter to 'O' or 'P' for in-flight pipeline.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['O', 'F', 'P']
+      - name: order_total_price
+        description: "Gross total as recorded in the source. Does NOT account for individual line-item discounts. Do not use for revenue — use net_revenue from stg_lineitem."
+      - name: order_date
+        description: "Calendar date the order was placed. Range in SF1: 1992-01-01 to 1998-12-31. Primary filter column for date-range analysis."
+        tests:
+          - not_null
+      - name: order_priority
+        description: "Business priority of the order. Values: 1-URGENT, 2-HIGH, 3-MEDIUM, 4-NOT SPECIFIED, 5-LOW."
+      - name: clerk
+        description: "Identifier of the sales clerk who recorded the order."
+      - name: ship_priority
+        description: "Shipping priority flag. Integer; always 0 in SF1 records."
+      - name: order_comment
+        description: "Free-text comment associated with the order."
+
+  - name: stg_lineitem
+    description: >
+      Staging model for TPCH LINEITEM. The most granular fact table — every line item within
+      every order. 6 million rows at SF1. Each order has 1 to 7 line items. All revenue,
+      discount, and tax calculations must originate here. The approved net revenue formula is:
+      extended_price * (1 - discount) * (1 + tax). Never use extended_price alone — it ignores
+      discounts and overstates revenue.
+    columns:
+      - name: order_id
+        description: "Foreign key to stg_orders.order_id. Combined with line_number is the composite primary key."
+        tests:
+          - not_null
+      - name: part_id
+        description: "Foreign key to stg_part.part_id. Identifies which part was ordered."
+        tests:
+          - not_null
+      - name: supplier_id
+        description: "Foreign key to stg_supplier.supplier_id. Identifies which supplier fulfilled this line item."
+        tests:
+          - not_null
+      - name: line_number
+        description: "Sequential position of this line item within the order (1-based)."
+        tests:
+          - not_null
+      - name: quantity
+        description: "Number of units ordered for this part on this line item."
+        tests:
+          - not_null
+      - name: extended_price
+        description: "Gross line price (quantity × retail price) before discount or tax. WARNING — do not use for revenue reporting. It ignores the line-item discount. Use net_revenue formula instead."
+        tests:
+          - not_null
+      - name: discount
+        description: "Fractional discount rate on this line item. Range: 0.00 (no discount) to 0.10 (10% off). Apply as: extended_price * (1 - discount)."
+        tests:
+          - not_null
+      - name: tax
+        description: "Fractional tax rate on this line item. Range: 0.00 to 0.08. Apply as: post_discount_price * (1 + tax)."
+        tests:
+          - not_null
+      - name: return_flag
+        description: "Return status. A=accepted (kept by customer), R=returned (sent back), N=not yet processed. Exclude return_flag = 'R' to remove returned items from revenue."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['A', 'R', 'N']
+      - name: line_status
+        description: "Fulfilment status. O=open (not yet shipped), F=fulfilled (shipped). Filter to 'F' for shipped-only revenue."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['O', 'F']
+      - name: ship_date
+        description: "Actual date the item was dispatched from the supplier warehouse."
+      - name: commit_date
+        description: "Date the supplier originally committed to ship."
+      - name: receipt_date
+        description: "Date the customer received the item. Subtract ship_date to compute delivery lead time."
+      - name: ship_instructions
+        description: "Delivery instruction code: DELIVER IN PERSON, COLLECT COD, NONE, TAKE BACK RETURN."
+      - name: ship_mode
+        description: "Carrier mode. Values: AIR, FOB, MAIL, RAIL, REG AIR, SHIP, TRUCK."
+      - name: line_comment
+        description: "Free-text comment on the line item."
+
+  - name: stg_customer
+    description: >
+      Staging model for TPCH CUSTOMER. 150,000 rows at SF1. One row per unique customer.
+      Customers carry a market segment (automobile, building, etc.) and are linked to a nation.
+      Use to filter by segment, enrich with geography, or seed customer-level aggregations.
+      Join to stg_orders on customer_id for order history, then to stg_lineitem for revenue.
+    columns:
+      - name: customer_id
+        description: "Unique integer identifier for each customer. Primary key. Maps to C_CUSTKEY."
+        tests:
+          - unique
+          - not_null
+      - name: customer_name
+        description: "Customer display name in format 'Customer#000000001'. Not meaningful for analysis; use customer_id for joins."
+      - name: customer_address
+        description: "Customer mailing address string."
+      - name: nation_id
+        description: "Foreign key to stg_nation.nation_id. Links the customer to their country."
+        tests:
+          - not_null
+      - name: phone
+        description: "Customer phone number in international format."
+      - name: account_balance
+        description: "Customer account balance at snapshot time. Can be negative for accounts with outstanding balances."
+      - name: market_segment
+        description: >
+          Customer market segment from TPCH. Values: AUTOMOBILE, BUILDING, FURNITURE,
+          HOUSEHOLD, MACHINERY. Use for customer cohort analysis and segment-level revenue
+          breakdowns. Primary segmentation dimension for customer analytics in SnowSense.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['AUTOMOBILE', 'BUILDING', 'FURNITURE', 'HOUSEHOLD', 'MACHINERY']
+      - name: customer_comment
+        description: "Free-text comment on the customer record."
+
+  - name: stg_supplier
+    description: >
+      Staging model for TPCH SUPPLIER. 10,000 rows at SF1. One row per supplier.
+      Suppliers fulfill line items and are associated with a nation. Use for supplier performance
+      analysis, geographic concentration, and supply chain analytics. Join to stg_lineitem on
+      supplier_id for fulfilment volume and revenue contribution.
+    columns:
+      - name: supplier_id
+        description: "Unique integer identifier for each supplier. Primary key. Maps to S_SUPPKEY."
+        tests:
+          - unique
+          - not_null
+      - name: supplier_name
+        description: "Supplier display name (e.g. 'Supplier#000000001')."
+      - name: supplier_address
+        description: "Supplier mailing address."
+      - name: nation_id
+        description: "Foreign key to stg_nation.nation_id. Country the supplier operates from."
+        tests:
+          - not_null
+      - name: phone
+        description: "Supplier contact phone number."
+      - name: account_balance
+        description: "Supplier account balance. Positive values indicate amounts owed to the supplier."
+      - name: supplier_comment
+        description: "Free-text comment on the supplier."
+
+  - name: stg_part
+    description: >
+      Staging model for TPCH PART. 200,000 rows at SF1. One row per unique part in the catalogue.
+      Parts are the products sold in TPCH orders. Each has a type (material/category), brand,
+      manufacturer, and retail price. Use for product-mix analysis, demand by part type, and
+      margin calculations when combined with stg_partsupp supply costs.
+    columns:
+      - name: part_id
+        description: "Unique integer identifier for each part. Primary key. Maps to P_PARTKEY."
+        tests:
+          - unique
+          - not_null
+      - name: part_name
+        description: "Descriptive part name composed of colour and material words."
+      - name: manufacturer
+        description: "Manufacturer identifier (e.g. 'Manufacturer#1'). 5 distinct manufacturers in SF1."
+      - name: brand
+        description: "Brand label (e.g. 'Brand#11'). 25 distinct brands in SF1."
+      - name: part_type
+        description: "Part category and material (e.g. 'ECONOMY ANODIZED STEEL'). Contains economy/standard/promo prefix and material suffix."
+      - name: part_size
+        description: "Integer size indicator. Range: 1 to 50."
+      - name: container
+        description: "Packaging container type (e.g. 'SM BOX', 'LG DRUM', 'MED CAN')."
+      - name: retail_price
+        description: "Standard retail price for this part. Basis for extended_price in LINEITEM."
+      - name: part_comment
+        description: "Free-text comment on the part."
+
+  - name: stg_partsupp
+    description: >
+      Staging model for TPCH PARTSUPP. 800,000 rows at SF1. Each row represents one supplier's
+      capacity to supply one specific part — the cross-reference between parts and suppliers.
+      Contains available stock and unit supply cost (procurement cost). Essential for margin
+      analysis: compare supply_cost to extended_price from LINEITEM to derive gross margin.
+      Composite primary key: (part_id, supplier_id).
+    columns:
+      - name: part_id
+        description: "Foreign key to stg_part.part_id. Part of the composite primary key."
+        tests:
+          - not_null
+      - name: supplier_id
+        description: "Foreign key to stg_supplier.supplier_id. Part of the composite primary key."
+        tests:
+          - not_null
+      - name: available_quantity
+        description: "Current stock quantity available from this supplier for this part."
+      - name: supply_cost
+        description: >
+          Unit cost to procure this part from this specific supplier. Varies by supplier —
+          the same part may be cheaper from one supplier than another. Use for gross margin
+          calculations: net_revenue - (quantity × supply_cost) = gross profit per line item.
+      - name: partsupp_comment
+        description: "Free-text comment on the part-supplier record."
+
+  - name: stg_nation
+    description: >
+      Staging model for TPCH NATION. 25 rows — one per country. Links customers and suppliers
+      to the geographic hierarchy. Join on nation_id to attach country names; join further to
+      stg_region for continental grouping.
+    columns:
+      - name: nation_id
+        description: "Unique integer identifier for each nation. Primary key. Maps to N_NATIONKEY."
+        tests:
+          - unique
+          - not_null
+      - name: nation_name
+        description: "Country name in uppercase (e.g. 'GERMANY', 'FRANCE', 'UNITED STATES'). 25 countries in SF1."
+        tests:
+          - not_null
+          - unique
+      - name: region_id
+        description: "Foreign key to stg_region.region_id. Links this nation to one of the 5 continental regions."
+        tests:
+          - not_null
+      - name: nation_comment
+        description: "Free-text comment on the nation."
+
+  - name: stg_region
+    description: >
+      Staging model for TPCH REGION. 5 rows — top level of the geographic hierarchy.
+      Values: AFRICA, AMERICA, ASIA, EUROPE, MIDDLE EAST. Use as the highest-level rollup
+      dimension for regional revenue and customer analysis.
+    columns:
+      - name: region_id
+        description: "Unique integer identifier for each region. Primary key. Maps to R_REGIONKEY."
+        tests:
+          - unique
+          - not_null
+      - name: region_name
+        description: "Continental region name in uppercase. Values: AFRICA, AMERICA, ASIA, EUROPE, MIDDLE EAST."
+        tests:
+          - not_null
+          - unique
+          - accepted_values:
+              values: ['AFRICA', 'AMERICA', 'ASIA', 'EUROPE', 'MIDDLE EAST']
+      - name: region_comment
+        description: "Free-text comment on the region."

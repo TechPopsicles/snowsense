@@ -1,0 +1,74 @@
+services:
+  streamlit:
+    build: ./streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      AGENT_URL: http://agent:8000
+    depends_on:
+      - agent
+
+  agent:
+    build: ./agent
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_DB: snowsense
+      PG_USER: snowsense
+      PG_PASSWORD: snowsense
+      PRIVATE_KEY_PATH: /run/secrets/rsa_key.p8
+    volumes:
+      - ./dbt_project/target:/app/dbt_project/target:ro
+      - ./rsa_key.p8:/run/secrets/rsa_key.p8:ro
+    depends_on:
+      agent-init:
+        condition: service_completed_successfully
+
+  agent-init:
+    build: ./agent
+    env_file: .env
+    environment:
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_DB: snowsense
+      PG_USER: snowsense
+      PG_PASSWORD: snowsense
+      DBT_MANIFEST_PATH: ./dbt_project/target/manifest.json
+    command: >
+      sh -c "
+        python scripts/seed_fingerprints.py &&
+        if [ -f dbt_project/target/manifest.json ]; then
+          python scripts/build_pgvector.py;
+        else
+          echo 'WARNING: manifest.json not found — skipping metadata index. Run make dbt-compile then make up.';
+        fi
+      "
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./dbt_project/target:/app/dbt_project/target:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: snowsense
+      POSTGRES_USER: snowsense
+      POSTGRES_PASSWORD: snowsense
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snowsense -d snowsense"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes: {}
