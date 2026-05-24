@@ -182,7 +182,7 @@ always use `customer_ltv` (discount-adjusted), never `ORDERS.O_TOTALPRICE`.
 ## Quick start
 
 ```bash
-git clone https://github.com/yourname/snowsense.git
+git clone https://github.com/TechPopsicles/snowsense.git
 cd snowsense
 cp .env.example .env
 # fill in SF_ACCOUNT, SF_USER, SF_PASSWORD, ANTHROPIC_API_KEY
